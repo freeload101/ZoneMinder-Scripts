@@ -23,3 +23,8 @@ Crazy TODO'S :
 * licence plate logging
 * match cars/faces
 * count trained objects over time create logs/graphs ( IE alert when mail person potentially changes )
+
+Output from the service script:
+![enter image description here](https://github.com/freeload101/ZoneMinder-Scripts/blob/master/ZM1.png?raw=true)
+Gmail tag for alerts deliverd:
+![enter image description here](https://github.com/freeload101/ZoneMinder-Scripts/blob/master/ZM2.png?raw=true)
