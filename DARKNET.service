@@ -1,0 +1,15 @@
+[Unit]
+Description=DARKNET STARTUP
+After=network.target
+
+[Service]
+User=root
+Group=adm
+
+Type=simple
+ExecStart=/bin/bash -c '\
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin ;\
+/usr/local/sbin/DARKNET '
+
+[Install]
+WantedBy=multi-user.target
