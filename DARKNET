@@ -1,0 +1,119 @@
+#!/bin/bash
+
+# lazy cleanup logs older then 5 days
+#find /var/log/zm/* -mtime +5 -exec rm '{}' \;
+
+# config
+
+# max number of events over 3000 to trigger smearing
+varscorethresh=100
+
+# wait 1 hour for throttling when home 
+varwait=3600
+
+# default, YOLO only displays objects detected with a confidence of .25 or higher
+# set this to .0 to trigger alerts etc 
+vardarknetthresh=.65
+# for debug vardarknetthresh=.1
+
+# START FUNCTIONS ####################################################################################################################################
+
+
+checksmearing () {
+# check for smearing
+echo `date` DEBUG: Checking for smearing 
+varsmearing=`curl --compressed -i -s -k  -X $'GET'     -H $'Host: 25.0.0.151' -H $'Accept-Encoding: gzip, deflate'      $'http://25.0.0.151/zm/index.php?view=events&page=&reload=0&execute=0&action=&subaction=&line=&fid=&filterName=WIPEALLEVENTS&filter%5Bterms%5D%5B0%5D%5Battr%5D=DateTime&filter%5Bterms%5D%5B0%5D%5Bop%5D=%3C&filter%5Bterms%5D%5B0%5D%5Bval%5D=now&sort_field=DateTime&sort_asc=1&limit=&AutoExecuteCmd=' | grep "colTotScore\">[0-9]" | sed -r 's/(.*ore\">)(.*)(<\/td>)/\2/g'  | egrep "([3-9]...)" |wc -l `
+	if [[ "${varsmearing}" -gt "${varscorethresh}" ]]
+		then
+			echo `date` DEBUG:  Alert Smering triggerd ${varscorethresh} events for scores 3000-9000 
+
+			# restart cam1
+			vartoken=`curl -i -s -k  -X $'POST' --data-binary $'[{\"cmd\":\"Login\",\"action\":0,\"param\":{\"User\":{\"userName\":\"admin\",\"password\":\"\"}}}]' $'http://25.0.0.205/cgi-bin/api.cgi?cmd=Login&token=null'   | grep name |sed -r 's/(.*: \")(.*)(\".*)/\2/g'`
+			curl -v -k  -X $'POST' --data-binary $'[{\"cmd\":\"Reboot\",\"action\":0,\"param\":{}}]' $"http://25.0.0.205/cgi-bin/api.cgi?cmd=Reboot&token=${vartoken}"
+
+			#restart cam2
+			vartoken=`curl -i -s -k  -X $'POST' --data-binary $'[{\"cmd\":\"Login\",\"action\":0,\"param\":{\"User\":{\"userName\":\"admin\",\"password\":\"\"}}}]' $'http://25.0.0.148/cgi-bin/api.cgi?cmd=Login&token=null'   | grep name |sed -r 's/(.*: \")(.*)(\".*)/\2/g'`
+			curl -v -k  -X $'POST' --data-binary $'[{\"cmd\":\"Reboot\",\"action\":0,\"param\":{}}]' $"http://25.0.0.148/cgi-bin/api.cgi?cmd=Reboot&token=${vartoken}"
+
+			# restart ZM
+			systemctl stop zoneminder.service;sleep 10;systemctl start zoneminder.service
+
+fi
+}
+
+
+emailalert () {
+# is one of our phones on the network ?
+# my phones are on segmented wifi and I cant ping all of them so using this wackado expect telnet script ... 
+# maybe adjust arp timeout 15min ? echo 900 >/proc/sys/net/ipv4/neigh/default/gc_stale_time
+
+cat <<EOF> /tmp/arp
+#!/usr/bin/expect
+spawn telnet 25.0.0.1
+expect "*"
+send "echo 900 >/proc/sys/net/ipv4/neigh/default/gc_stale_time\r"
+expect "*"
+send "arp -an\r"
+expect "*"
+send "exit\r"
+expect eof
+EOF
+
+
+if [[ `expect /tmp/arp | egrep "(0x2.*d4:23:81|0x2.*3a:31:85|0x2.*62:21:94)"` == "" ]]
+	then
+		echo `date` DEBUG: Info status set to away not throttling notifications
+		echo `date` DEBUG: Info Sending email
+		python /usr/local/sbin/GMAIL.py
+	else
+		echo `date` DEBUG: Info status set to home throttling notifications
+		if [[ $(($(date +%s) - startTime))  -lt $varwait ]] 
+			then
+				echo `date` DEBUG: Info Not sending email it has not been ${varwait} seconds yet throttling
+			else
+				echo `date` DEBUG: Info Sending email /
+				python /usr/local/sbin/GMAIL.py
+				startTime=$(date +%s)
+		fi
+fi
+}
+
+
+# MAIN  ####################################################################################################################################
+
+
+
+
+tail -F --retry -n 0  /media/data/*.log | while read LOGLINE
+do
+	echo `date` DEBUG: zm.log ${LOGLINE}|egrep "(\bzm[a-z])"
+	varevenid=`echo ${LOGLINE}| grep "Closing event"  | sed -r 's/(.*Closing event )(.*)(,.*)/\2/g'`
+		if [[ "${varevenid}" != "" ]]
+			then
+				checksmearing
+				vareventpath=`find /usr/share/zoneminder/www/events/ -path "*\/*\/*\/*\/*\/*\/*\/*\/*\/*\/*/.${varevenid}*"|sed 's/\..*//g'`
+				cd /home/plex/YOLO/darknet
+				echo `date` DEBUG: Checking varevenid ${varevenid} Path ${vareventpath}
+				for i in `find ${vareventpath} -iname "*capture.jpg"|shuf -n 10` 
+				do
+				# look for person|cat|dog|car
+				vardarknet=`./darknet  detect /home/plex/YOLO/darknet/cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights $i  -thresh ${vardarknetthresh} 2> /dev/null | egrep -ia "(person|cat|dog|car|truck)"` 
+				echo `date` DEBUG: running Darknet on ${varevenid} $i
+					if [[ "${vardarknet}" != "" ]]
+						then
+							echo `date` DEBUG: Object detected ${varevenid} Path ${vareventpath} backing up image to /media/data/temp/${varevenid}_`date +%m%d%y%I%M%S`.png
+
+							echo `date` DEBUG: ${vardarknet}
+							sleep 1
+							# convert boxed image and backup
+							convert -quality 40  /home/plex/YOLO/darknet/predictions.png /tmp/tmp.jpg
+							cp /tmp/tmp.jpg /media/data/temp/${varevenid}_`date +%m%d%y%I%M%S`.jpg
+							# convert orig image
+							# REMOVED THIS TO NOT SEND BOXED IMAGE convert -quality 40  "$i" /tmp/tmp.jpg 
+							emailalert
+							break
+					fi
+				done
+		fi
+done
+
