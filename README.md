@@ -24,6 +24,13 @@ Crazy TODO'S :
 * match cars/faces
 * count trained objects over time create logs/graphs ( IE alert when mail person potentially changes )
 
+NOTES:
+
+Zoneminder Darknet yolov2
+https://forums.zoneminder.com/viewtopic.php?f=36&t=26906
+
+Google Docs ZM Notes
+https://docs.google.com/document/d/1E1xAwWpq-C4vEh8LCRw7MD7jnaclX9Faf2L3dZWiqQY
 
 
 Output from the service script:
