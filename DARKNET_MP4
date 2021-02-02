@@ -1,0 +1,162 @@
+#!/bin/bash
+
+
+#██╗    ██╗ █████╗ ██████╗ ███╗   ██╗██╗███╗   ██╗ ██████╗
+#██║    ██║██╔══██╗██╔══██╗████╗  ██║██║████╗  ██║██╔════╝
+#██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
+#██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║
+#╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝
+# ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝
+### DO NOT SHARE THIS SCRIPT IT HAS PA$$WORDS IN IT !!!!
+
+# lazy cleanup logs older then 5 days
+#find /var/log/zm/* -mtime +5 -exec rm '{}' \;
+
+# config
+
+# max number of events over 3000 to trigger smearing
+varscorethresh=100
+
+# wait 1 hour for throttling when home
+varwait=3600
+
+# default, YOLO only displays objects detected with a confidence of .25 or higher
+# set this to .0 to trigger alerts etc
+vardarknetthresh=.65
+# for debug vardarknetthresh=.1
+
+# START FUNCTIONS ####################################################################################################################################
+
+
+checksmearing () {
+# check for smearing
+echo `date` DEBUG: Checking for smearing
+varsmearing=`curl --compressed -i -s -k  -X $'GET'     -H $'Host: 25.0.0.151' -H $'Accept-Encoding: gzip, deflate'      $'http://25.0.0.151/zm/index.php?view=events&page=&reload=0&execute=0&action=&subaction=&line=&fid=&filterName=WIPEALLEVENTS&filter%5Bterms%5D%5B0%5D%5Battr%5D=DateTime&filter%5Bterms%5D%5B0%5D%5Bop%5D=%3C&filter%5Bterms%5D%5B0%5D%5Bval%5D=now&sort_field=DateTime&sort_asc=1&limit=&AutoExecuteCmd=' | grep "colTotScore\">[0-9]" | sed -r 's/(.*ore\">)(.*)(<\/td>)/\2/g'  | egrep "([3-9]...)" |wc -l `
+        if [[ "${varsmearing}" -gt "${varscorethresh}" ]]
+                then
+                        echo `date` DEBUG:  Alert Smering triggerd ${varscorethresh} events for scores 3000-9000
+
+                        # restart cam1
+                        vartoken=`curl -i -s -k  -X $'POST' --data-binary $'[{\"cmd\":\"Login\",\"action\":0,\"param\":{\"User\":{\"userName\":\"admin\",\"password\":\"\"}}}]' $'http://25.0.0.205/cgi-bin/api.cgi?cmd=Login&token=null'   | grep name |sed -r 's/(.*: \")(.*)(\".*)/\2/g'`
+                        curl -v -k  -X $'POST' --data-binary $'[{\"cmd\":\"Reboot\",\"action\":0,\"param\":{}}]' $"http://25.0.0.205/cgi-bin/api.cgi?cmd=Reboot&token=${vartoken}"
+
+                        #restart cam2
+                        vartoken=`curl -i -s -k  -X $'POST' --data-binary $'[{\"cmd\":\"Login\",\"action\":0,\"param\":{\"User\":{\"userName\":\"admin\",\"password\":\"\"}}}]' $'http://25.0.0.148/cgi-bin/api.cgi?cmd=Login&token=null'   | grep name |sed -r 's/(.*: \")(.*)(\".*)/\2/g'`
+                        curl -v -k  -X $'POST' --data-binary $'[{\"cmd\":\"Reboot\",\"action\":0,\"param\":{}}]' $"http://25.0.0.148/cgi-bin/api.cgi?cmd=Reboot&token=${vartoken}"
+
+                        # restart ZM
+                        systemctl stop zoneminder.service;sleep 10;systemctl start zoneminder.service
+
+fi
+}
+
+
+emailalert () {
+echo `date` DEBUG: Info sending email
+python /usr/local/sbin/GMAIL.py
+export startTime=$(date +%s)
+}
+
+checkarp () {
+echo `date` DEBUG: Info Checking for Phones
+# is one of our phones on the network ?
+# my phones are on segmented wifi and I cant ping all of them so using this wackado expect telnet script ...
+# maybe adjust arp timeout 15min ? echo 900 >/proc/sys/net/ipv4/neigh/default/gc_stale_time
+
+
+
+
+export varHost1=`ping -W 60 -c 1 192.168.20.28 |grep '\b0% packet loss'`
+export varHost2=`ping -W 60 -c 1 192.168.20.82 |grep '\b0% packet loss'`
+
+
+if [ "${varHost1}"  == '' ] && [ "${varHost2}"  == ''  ]
+then
+echo `date` DEBUG: Info status set to away not throttling notifications
+export varstatus=away
+else
+echo `date` DEBUG: Info status set to home throttling notifications
+export varstatus=home
+fi
+
+
+}
+
+
+
+GO_DARKNET() {
+
+export vareventpath=`find /var/cache/zoneminder/events -path "*\/*\/*\/*\/*\/*\/*\/*\/*\/*/.${varevenid}*"|sed 's/\..*//g'`
+cd /home/plex/YOLO/darknet
+echo `date` DEBUG: Checking varevenid ${varevenid} Path ${vareventpath}
+        for i in `find /usr/share/zoneminder/www/events/*/*/${varevenid}/*.mp4|shuf -n 10`
+                do
+if [[ `mediainfo $i|grep Duration` == "" ]]
+then
+echo `date` DEBUG: ERROR Duration for ${varevenid} "${i}"
+else
+
+cd "/home/plex/darknet_2021/1/darknet"
+
+                # look for person|cat|dog|car
+                #export vardarknet=`./darknet detector demo ./cfg/coco.data  ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show  $i  -thresh ${vardarknetthresh} 2> /dev/null | egrep -ia "(person|cat|dog|car|truck)"`
+                export vardarknet=`./darknet detector demo ./cfg/coco.data  ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show  $i  -thresh ${vardarknetthresh} 2> /dev/null | egrep -ia "(\%)"`
+                echo `date` DEBUG: running Darknet on ${varevenid} $i
+fi
+
+                        if [[ "${vardarknet}" != "" ]]
+                                then
+                                        echo `date` DEBUG: Object detected ${varevenid} Path ${vareventpath} backing up image to /media/data/temp/${varevenid}_`date +%m%d%y%I%M%S`.png
+                                        echo `date` DEBUG: ${vardarknet}
+                                        sleep 1
+                                        # convert boxed image and backup
+                                        cp "${i}" "/tmp/tmp.mp4"
+                                        # convert orig image
+                                        break
+                        fi
+                done
+
+
+}
+
+# MAIN  ####################################################################################################################################
+
+
+
+
+tail -F --retry -n 0  /var/log/zm/*.log | while read LOGLINE
+do
+        echo `date` DEBUG: zm.log ${LOGLINE}|egrep "(\bzm[a-z])"
+        varevenid=`echo ${LOGLINE}| grep "Closing event"  | sed -r 's/(.*Closing event )(.*)(,.*)/\2/g'`
+                if [[ "${varevenid}" != "" ]]
+                        then
+                                checksmearing
+                                checkarp
+                                if [[ "${varstatus}" == "home" && $(($(date +%s) - startTime))  -gt $varwait  ]]
+                                        then
+                                                echo `date` DEBUG: Info running darknet it has been ${varwait} seconds and startTime is ${startTime}
+                                                GO_DARKNET
+                                fi
+
+                                if [[ "${varstatus}" == "home" &&  $(($(date +%s) - startTime))  -lt $varwait && $startTime != "" ]]
+                                        then
+                                                echo `date` DEBUG: Info startTime is ${startTime} null or delay not reached
+                                                export vardarknet=""
+                                        fi
+
+                                if [[ "${varstatus}" == "away" ]]
+                                        then
+                                                echo `date` DEBUG: Info running darknet in away status
+                                                GO_DARKNET
+                                fi
+
+
+                                if [[ "${vardarknet}" != "" ]]
+                                        then
+                                                echo `date` DEBUG: Info vardarknet is not null emailing
+                                                emailalert
+                                fi
+                fi
+done
+
+
