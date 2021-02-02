@@ -99,8 +99,8 @@ else
 cd "/home/plex/darknet_2021/1/darknet"
 
                 # look for person|cat|dog|car
-                #export vardarknet=`./darknet detector demo ./cfg/coco.data  ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show  $i  -thresh ${vardarknetthresh} 2> /dev/null | egrep -ia "(person|cat|dog|car|truck)"`
-                export vardarknet=`./darknet detector demo ./cfg/coco.data  ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show  $i  -thresh ${vardarknetthresh} 2> /dev/null | egrep -ia "(\%)"`
+                export vardarknet=`./darknet detector demo ./cfg/coco.data  ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show  $i  -thresh ${vardarknetthresh} 2> /dev/null | egrep -ia "(person|cat|dog|car|truck)"`
+                #export vardarknet=`./darknet detector demo ./cfg/coco.data  ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show  $i  -thresh ${vardarknetthresh} 2> /dev/null | egrep -ia "(\%)"`
                 echo `date` DEBUG: running Darknet on ${varevenid} $i
 fi
 
