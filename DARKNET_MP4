@@ -58,8 +58,8 @@ export startTime=$(date +%s)
 
 checkarp () {
 echo `date` DEBUG: Info Checking for Phones
-export varHost1=`ping -W 60 -c 1 192.168.20.28 |grep '\b0% packet loss'`
-export varHost2=`ping -W 60 -c 1 192.168.20.82 |grep '\b0% packet loss'`
+export varHost1=`ping -W 5 -c 1 192.168.20.28 |grep '\b0% packet loss'`
+export varHost2=`ping -W 5  -c 1 192.168.20.82 |grep '\b0% packet loss'`
 
 
 if [ "${varHost1}"  == '' ] && [ "${varHost2}"  == ''  ]
@@ -108,6 +108,7 @@ sleep 1
                                         then
                                                 echo `date` DEBUG: Info object found in $COUNTER seconds
                                                 vardarknet="${VAR_OBJECT}"
+                                                cp "${i}" /tmp/tmp.mp4
                                                 COUNTER=999
                                         else
                                                 echo `date` DEBUG: Warning object not found scanning $COUNTER seconds
@@ -118,6 +119,10 @@ sleep 1
         if [[ "${VAR_OBJECT}" == "" ]]
                 then
                         echo `date` DEBUG: Error time expired $COUNTER seconds object not found
+                        echo `date` DEBUG: Error killing darknet
+                        killall darknet
+                        killall -9 darknet
+
         fi
 
                 done
