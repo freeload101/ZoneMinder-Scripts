@@ -6,7 +6,7 @@
 #██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
 #██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║
 #╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝
-# ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝
+# ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════
 ### DO NOT SHARE THIS SCRIPT IT HAS PA$$WORDS IN IT !!!!
 
 # lazy cleanup logs older then 5 days
@@ -109,7 +109,7 @@ sleep 1
                                                 echo `date` DEBUG: Info object found in $COUNTER seconds
                                                 vardarknet="${VAR_OBJECT}"
                                                 #cp "${i}" /tmp/tmp.mp4
-                                                ffmpeg -i "${i}" -preset slow -codec:a libfdk_aac -b:a 128k -codec:v libx264 -pix_fmt yuv420p -b:v 1000k -minrate 500k -maxrate 2000k -bufsize 2000k -vf scale=854:480 /tmp/tmp.mp4
+                                                ffmpeg -i "${i}" -y -preset slow -codec:a libfdk_aac -b:a 128k -codec:v libx264 -pix_fmt yuv420p -b:v 1000k -minrate 500k -maxrate 2000k -bufsize 2000k -vf scale=854:480 /tmp/tmp.mp4
                                                 COUNTER=999
                                         else
                                                 echo `date` DEBUG: Warning object not found scanning $COUNTER seconds
