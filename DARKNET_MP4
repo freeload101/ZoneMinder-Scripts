@@ -6,7 +6,7 @@
 #██║ █╗ ██║███████║██████╔╝██╔██╗ ██║██║██╔██╗ ██║██║  ███╗
 #██║███╗██║██╔══██║██╔══██╗██║╚██╗██║██║██║╚██╗██║██║   ██║
 #╚███╔███╔╝██║  ██║██║  ██║██║ ╚████║██║██║ ╚████║╚██████╔╝
-# ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════
+# ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝ ╚═════╝
 ### DO NOT SHARE THIS SCRIPT IT HAS PA$$WORDS IN IT !!!!
 
 # lazy cleanup logs older then 5 days
@@ -58,17 +58,27 @@ export startTime=$(date +%s)
 
 checkarp () {
 echo `date` DEBUG: Info Checking for Phones
-export varHost1=`ping -W 5 -c 1 192.168.20.28 |grep '\b0% packet loss'`
-export varHost2=`ping -W 5  -c 1 192.168.20.82 |grep '\b0% packet loss'`
+# is one of our phones on the network ?
+# my phones are on segmented wifi and I cant ping all of them so using this wackado expect telnet script ...
+# maybe adjust arp timeout 15min ? echo 900 >/proc/sys/net/ipv4/neigh/default/gc_stale_time
+
+echo "echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXX" > /tmp/1
+chmod 777 /tmp/1
+
+# sets some vars for ssh to play nice with something to do with GUI but here we are using it to pass creds.
 
 
-if [ "${varHost1}"  == '' ] && [ "${varHost2}"  == ''  ]
-        then
-                echo `date` DEBUG: Info status set to away not throttling notifications
-                export varstatus=away
-        else
-                echo `date` DEBUG: Info status set to home throttling notifications
-                export varstatus=home
+export SSH_ASKPASS="/tmp/1"
+export DISPLAY=YOURDOINGITWRONG
+export varHost1=`setsid ssh root@25.0.0.1 -p 22 "arp -an" | grep -iaE "(f4:f5:24:3a:31:85|58:d5:0a:29:3c:b8)" | grep on`
+
+if [ "${varHost1}"  == '' ]
+then
+echo `date` DEBUG: Info status set to AWAY not throttling notifications
+export varstatus=away
+else
+echo `date` DEBUG: Info status set to HOME throttling notifications
+export varstatus=home
 fi
 
 
@@ -79,7 +89,6 @@ fi
 GO_DARKNET() {
 
 export vareventpath=`find /var/cache/zoneminder/events -path "*\/*\/*\/*\/*\/*\/*\/*\/*\/*/.${varevenid}*"|sed 's/\..*//g'`
-cd /home/plex/YOLO/darknet
 echo `date` DEBUG: Info varevenid ${varevenid} Path ${vareventpath}
         for i in `find /usr/share/zoneminder/www/events/*/*/${varevenid}/*.mp4|shuf -n 10`
                 do
@@ -95,21 +104,21 @@ killall darknet 2> /dev/null
 sleep 2
 killall -9 darknet 2> /dev/null
 
-cd "/home/plex/darknet_2021/1/darknet"
+cd "/home/plex/YOLO/darknet_AB/darknet"
 unbuffer ./darknet detector demo ./cfg/coco.data ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show "${i}" -thresh .65 > out.txt &
 
 COUNTER=1
 sleep 1
         while [  $COUNTER -lt 121 ]
                 do
-                        VAR_OBJECT=`grep '%' out.txt`
+                        VAR_OBJECT=`grep '%' out.txt| egrep -ia "(person|cat|dog|car|truck)"`
                         let COUNTER=COUNTER+1
                                 if [[ "${VAR_OBJECT}" != "" ]]
                                         then
-                                                echo `date` DEBUG: Info object found in $COUNTER seconds
                                                 vardarknet="${VAR_OBJECT}"
+                                                echo `date` DEBUG: Object "${VAR_OBJECT}" found in $COUNTER seconds
                                                 #cp "${i}" /tmp/tmp.mp4
-                                                ffmpeg -i "${i}" -y -preset slow -codec:a libfdk_aac -b:a 128k -codec:v libx264 -pix_fmt yuv420p -b:v 1000k -minrate 500k -maxrate 2000k -bufsize 2000k -vf scale=854:480 /tmp/tmp.mp4
+                                                ffmpeg -i "${i}" -y  -preset slow -codec:a libfdk_aac -b:a 128k -codec:v libx264 -pix_fmt yuv420p -b:v 1000k -minrate 500k -maxrate 2000k -bufsize 2000k -vf scale=854:480 /tmp/tmp.mp4
                                                 COUNTER=999
                                         else
                                                 echo `date` DEBUG: Warning object not found scanning $COUNTER seconds
