@@ -52,6 +52,7 @@ varsmearing=`curl --compressed -i -s -k  -X $'GET'     -H $'Host: 25.0.0.151' -H
 
 emailalert () {
 echo `date` DEBUG: Info sending email
+# had to create gmail 'app password' because eveything has been broken for months only because I didn't do anything :P
 python /usr/local/sbin/GMAIL.py
 export startTime=$(date +%s)
 }
