@@ -10,7 +10,9 @@
 ### DO NOT SHARE THIS SCRIPT IT HAS PA$$WORDS IN IT !!!!
 
 # lazy cleanup logs older then 5 days
-#find /var/log/zm/* -mtime +5 -exec rm '{}' \;
+find /var/log/zm/* -mtime +5 -exec rm '{}' \;
+find /media/moredata/events/1/* -mtime +15 -exec rm -Rf '{}' \;
+find /media/moredata/events/2/* -mtime +15 -exec rm -Rf '{}' \;
 
 # config
 
@@ -52,7 +54,6 @@ varsmearing=`curl --compressed -i -s -k  -X $'GET'     -H $'Host: 25.0.0.151' -H
 
 emailalert () {
 echo `date` DEBUG: Info sending email
-# had to create gmail 'app password' because eveything has been broken for months only because I didn't do anything :P
 python /usr/local/sbin/GMAIL.py
 export startTime=$(date +%s)
 }
@@ -63,7 +64,7 @@ echo `date` DEBUG: Info Checking for Phones
 # my phones are on segmented wifi and I cant ping all of them so using this wackado expect telnet script ...
 # maybe adjust arp timeout 15min ? echo 900 >/proc/sys/net/ipv4/neigh/default/gc_stale_time
 
-echo "echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXX" > /tmp/1
+echo "echo XXXXXXXXXXXXXXXXXXXXXXXXXXXX" > /tmp/1
 chmod 777 /tmp/1
 
 # sets some vars for ssh to play nice with something to do with GUI but here we are using it to pass creds.
@@ -97,7 +98,6 @@ echo `date` DEBUG: Info varevenid ${varevenid} Path ${vareventpath}
                                 then
                                         echo `date` DEBUG: Error no duration for ${varevenid} "${i}"
                                 else
-                                        export vardarknet=`./darknet detector demo ./cfg/coco.data  ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show  $i  -thresh ${vardarknetthresh} 2> /dev/null | egrep -ia "(person|cat|dog|car|truck)"`
                                         echo `date` DEBUG: Info running Darknet on ${varevenid} $i
                         fi
 
@@ -106,8 +106,7 @@ sleep 2
 killall -9 darknet 2> /dev/null
 
 cd "/home/plex/YOLO/darknet_AB/darknet"
-unbuffer ./darknet detector demo ./cfg/coco.data ./cfg/yolov3.cfg /home/plex/YOLO/darknet/yolov3.weights -dont_show "${i}" -thresh .65 > out.txt &
-
+unbuffer ./darknet detector demo /home/plex/YOLO/darknet_AB/darknet/cfg/coco.data  /home/plex/YOLO/darknet_AB/darknet/cfg/yolov3.cfg /home/plex/YOLO/darknet_AB/darknet/yolov3.weights -dont_show "${i}" -thresh .65 > out.txt &
 COUNTER=1
 sleep 1
         while [  $COUNTER -lt 121 ]
@@ -121,8 +120,8 @@ sleep 1
                                                 #cp "${i}" /tmp/tmp.mp4
                                                 ffmpeg -i "${i}" -y  -preset slow -codec:a libfdk_aac -b:a 128k -codec:v libx264 -pix_fmt yuv420p -b:v 1000k -minrate 500k -maxrate 2000k -bufsize 2000k -vf scale=854:480 /tmp/tmp.mp4
                                                 COUNTER=999
-                                        else
-                                                echo `date` DEBUG: Warning object not found scanning $COUNTER seconds
+                                       #DEBUG else
+                                            #DEBUG    echo `date` DEBUG: Warning object not found scanning $COUNTER seconds
                                 fi
                         sleep 1
                 done
@@ -146,7 +145,7 @@ sleep 1
 
 
 
-tail -F --retry -n 0  /var/log/zm/*.log | while read LOGLINE
+tail -F --retry -n 0  /var/log/zm/*.log /media/data/zm.log | while read LOGLINE
 do
         echo `date` DEBUG: Info ${LOGLINE}|egrep "(\bzm[a-z])"
         varevenid=`echo ${LOGLINE}| grep "Closing event"  | sed -r 's/(.*Closing event )(.*)(,.*)/\2/g'`
